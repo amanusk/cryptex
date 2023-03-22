@@ -1,0 +1,33 @@
+{
+  "name": "@argent-x/dapp",
+  "version": "5.3.12",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "export": "next export",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@argent/get-starknet": "^5.3.12",
+    "@argent/x-sessions": "^5.3.12",
+    "@emotion/react": "^11.10.6",
+    "@emotion/styled": "^11.10.6",
+    "@mui/material": "^5.11.14",
+    "ethers": "^5.5.1",
+    "next": "^13.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "starknet": "^4.21.0",
+    "starknet5": "npm:starknet@5.0.0-beta.3"
+  },
+  "devDependencies": {
+    "@types/node": "18.14.2",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "eslint": "8",
+    "eslint-config-next": "13.2.3",
+    "typescript": "^4.9.4"
+  }
+}
