@@ -64,11 +64,31 @@ mod Account {
     }
 
     #[constructor]
-    fn constructor(initial_key: felt252, initial_weight: u128, initial_threshold: u128) {
-        n_keys::write(1_usize);
-        keys::write(0_usize, initial_key);
-        weights::write(initial_key, initial_weight);
+    fn constructor(initial_threshold: u128, mut keys_and_weights: Array::<(felt252, u128)>) {
         threshold::write(initial_threshold);
+        n_keys::write(keys_and_weights.len());
+        set_keys_and_weights(0_usize, keys_and_weights)
+    }
+
+    fn set_keys_and_weights(idx: usize, mut keys_and_weights: Array::<(felt252, u128)>) {
+        match gas::withdraw_gas_all(get_builtin_costs()) {
+            Option::Some(_) => {},
+            Option::None(_) => {
+                let mut data = ArrayTrait::new();
+                data.append('OOG');
+                panic(data);
+            }
+        }
+        match keys_and_weights.pop_front() {
+            Option::Some((
+                key, weight
+            )) => {
+                keys::write(idx, key);
+                weights::write(key, weight);
+                set_keys_and_weights(idx + 1_usize, keys_and_weights)
+            },
+            Option::None(()) => {}
+        }
     }
 
     #[external]
