@@ -18,34 +18,150 @@ mod Account {
     use starknet::ContractAddressZeroable;
     use zeroable::Zeroable;
     use starknet::TxInfo;
+    use serde::Serde;
+    use dict::Felt252DictTrait;
+    use traits::Into;
 
     struct Storage {
-        public_key: felt252,
+        threshold: u128,
+        n_keys: usize,
         weights: LegacyMap::<felt252, u128>,
+        keys: LegacyMap::<usize, felt252>,
+    }
+
+    #[derive(Drop)]
+    struct MultiSig {
+        signatures: Array<SignatureEntry>, 
+    }
+
+    impl MultiSigSerde of Serde::<MultiSig> {
+        fn serialize(ref output: Array<felt252>, mut input: MultiSig) {
+            Serde::serialize(ref output, input.signatures);
+        }
+
+        fn deserialize(ref serialized: Span<felt252>) -> Option<MultiSig> {
+            Option::Some(MultiSig { signatures: Serde::deserialize(ref serialized)? })
+        }
+    }
+
+    #[derive(Copy, Drop)]
+    struct SignatureEntry {
+        key: felt252,
+        r: felt252,
+        s: felt252,
+    }
+
+    impl SignatureEntrySerde of Serde::<SignatureEntry> {
+        fn serialize(ref output: Array<felt252>, mut input: SignatureEntry) {
+            Serde::serialize(ref output, (input.key, input.r, input.s));
+        }
+
+        fn deserialize(ref serialized: Span<felt252>) -> Option<SignatureEntry> {
+            let res = Serde::<(felt252, felt252, felt252)>::deserialize(ref serialized)?;
+            let (key, r, s) = res;
+            Option::Some(SignatureEntry { key, r, s })
+        }
     }
 
     #[constructor]
-    fn constructor(public_key_: felt252) {
-        public_key::write(public_key_);
+    fn constructor(initial_key: felt252, initial_weight: u128, initial_threshold: u128) {
+        add_key(initial_key, initial_weight);
+        set_threshold(initial_threshold);
+    }
+
+    #[external]
+    fn add_key(key: felt252, weight: u128) {
+        assert(starknet::get_caller_address() == starknet::get_contract_address(), 'Bad caller');
+        assert(weight > 0_u128, 'Invalid weight');
+        let n_keys_ = n_keys::read();
+        n_keys::write(n_keys_ + 1_usize);
+        keys::write(n_keys_, key);
+        weights::write(key, weight);
+    }
+
+    #[external]
+    fn remove_key_at(index: usize) {
+        assert(starknet::get_caller_address() == starknet::get_contract_address(), 'Bad caller');
+        let n_keys_ = n_keys::read();
+        assert(index < n_keys_, 'Out of range');
+        let key = keys::read(index);
+        weights::write(key, 0_u128);
+        keys::write(index, keys::read(n_keys_ - 1_usize));
+        keys::write(n_keys_ - 1_usize, 0);
+        n_keys::write(n_keys_ - 1_usize);
+    }
+
+    #[external]
+    fn set_threshold(threshold_: u128) {
+        assert(starknet::get_caller_address() == starknet::get_contract_address(), 'Bad caller');
+        threshold::write(threshold_)
+    }
+
+    #[view]
+    fn get_n_keys() -> usize {
+        n_keys::read()
+    }
+
+    #[view]
+    fn get_key_at(index: usize) -> felt252 {
+        assert(index < n_keys::read(), 'Out of range');
+        keys::read(index)
+    }
+
+    #[view]
+    fn get_weight_at(key: felt252) -> u128 {
+        weights::read(key)
+    }
+
+    #[view]
+    fn get_threshold() -> u128 {
+        threshold::read()
     }
 
     fn validate_transaction(tx_info: TxInfo) -> felt252 {
-        // let tx_info = starknet::get_tx_info.unbox();
-        let signature = tx_info.signature;
-        assert(signature.len() == 2_u32, 'INVALID_SIGNATURE_LENGTH');
-        assert(
-            check_ecdsa_signature(
-                message_hash: tx_info.transaction_hash,
-                public_key: public_key::read(),
-                signature_r: *signature.at(0_u32),
-                signature_s: *signature.at(1_u32),
-            ),
-            'INVALID_SIGNATURE',
+        let mut signature = tx_info.signature;
+        let tx_hash = tx_info.transaction_hash + 1 - 1;
+        let MultiSig{mut signatures, } = Serde::<MultiSig>::deserialize(
+            ref signature
+        ).expect('Invaid signature format');
+
+        let weight = get_total_signed_weight(
+            0_u128, u256 { low: 0_u128, high: 0_u128 }, tx_hash, signatures
         );
+        assert(weight >= threshold::read(), 'Not enough weight');
 
         starknet::VALIDATED
     }
 
+    fn get_total_signed_weight(
+        total: u128, min_key: u256, tx_hash: felt252, mut signatures: Array<SignatureEntry>
+    ) -> u128 {
+        match gas::withdraw_gas_all(get_builtin_costs()) {
+            Option::Some(_) => {},
+            Option::None(_) => {
+                let mut data = ArrayTrait::new();
+                data.append('OOG');
+                panic(data);
+            }
+        }
+        match signatures.pop_front() {
+            Option::Some(SignatureEntry{key,
+            r,
+            s,
+            }) => {
+                let weight = weights::read(key);
+                let key_as_u256 = key.into();
+                assert(min_key <= key_as_u256, 'Keys not sequential');
+                assert(check_ecdsa_signature(tx_hash, key, r, s), 'Invalid signature');
+                return get_total_signed_weight(
+                    total + weight, key_as_u256 + 1.into(), tx_hash, signatures
+                );
+            },
+            Option::None(()) => {
+                total
+            },
+        }
+    }
 
     #[external]
     fn __validate_deploy__(
