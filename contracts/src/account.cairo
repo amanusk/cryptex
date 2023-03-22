@@ -65,8 +65,10 @@ mod Account {
 
     #[constructor]
     fn constructor(initial_key: felt252, initial_weight: u128, initial_threshold: u128) {
-        add_key(initial_key, initial_weight);
-        set_threshold(initial_threshold);
+        n_keys::write(1_usize);
+        keys::write(0_usize, initial_key);
+        weights::write(initial_key, initial_weight);
+        threshold::write(initial_threshold);
     }
 
     #[external]
