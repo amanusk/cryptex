@@ -1,2 +1,4 @@
 [crate_roots]
 contracts = "src"
+
+# core = "/home/amanusk/Code/Cairo1/cairo/corelib/src/"
