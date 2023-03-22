@@ -1,6 +1,7 @@
 import { SessionAccount, createSession } from "@argent/x-sessions"
 import { FC, useEffect, useState } from "react"
-import { Abi, AccountInterface, Contract, ec } from "starknet"
+import { Abi, AccountInterface, Contract, ec, transaction, uint256 } from "starknet"
+import BN from "bn.js";
 import { hash } from "starknet5"
 import Button from '@mui/material/Button';
 import Erc20Abi from "../../abi/ERC20.json"
@@ -21,6 +22,7 @@ import {
 } from "../services/wallet.service"
 import styles from "../styles/Home.module.css"
 import { Box, Divider, List, ListItem, ListItemButton, ListItemText, Paper, Stack, styled } from "@mui/material";
+import { getStarknet } from "@argent/get-starknet/dist";
 
 const { genKeyPair, getStarkKey } = ec
 
@@ -54,10 +56,12 @@ export const TokenDapp: FC<{
   account: AccountInterface
 }> = ({ showSession, account }) => {
   const [mintAmount, setMintAmount] = useState("10")
+  const [transferFrom, setTransferFrom] = useState("")
   const [transferTo, setTransferTo] = useState("")
   const [transferAmount, setTransferAmount] = useState("1")
+  const [nonce, setNonce] = useState("1")
   const [shortText, setShortText] = useState("")
-  const [allTxs, setAllTxs] = useState<string[]>(["1", "2", "3"])
+  const [allTxs, setAllTxs] = useState<string[]>([])
   const [currentTx, setCurrentTx] = useState<string | undefined>(undefined)
   const [lastTransactionHash, setLastTransactionHash] = useState("")
   const [transactionStatus, setTransactionStatus] = useState<Status>("idle")
@@ -134,16 +138,35 @@ export const TokenDapp: FC<{
   }
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
+    
     try {
-      e.preventDefault()
-      setTransactionStatus("approve")
 
-      console.log("transfer", { transferTo, transferAmount })
-      const result = await transfer(transferTo, transferAmount, network)
-      console.log(result)
-
-      setLastTransactionHash(result.transaction_hash)
-      setTransactionStatus("pending")
+      let starknet = getStarknet();
+      const erc20Contract = new Contract(
+        Erc20Abi as any,
+        getErc20TokenAddress(network),
+        starknet.account as any,
+      )
+      let uint256Amount = uint256.bnToUint256(new BN(transferAmount.toString()));
+      let walletAddress = transferFrom;
+      const version = 1;
+      const maxFee=10000000000000000;
+      let invocation = {
+        contractAddress: tokenAddress,
+        entrypoint: "transfer",
+        calldata: [transferTo, uint256Amount.low, uint256Amount.high],
+      };
+      const calldata = transaction.fromCallsToExecuteCalldata([invocation]);
+      const data = {
+        address:walletAddress,
+        calldata:calldata,
+        max_fee:maxFee,
+        nonce:nonce
+      }
+      fetch("http://192.168.1.165:8080/init_tx",{
+        method: 'POST',
+        body: JSON.stringify(data)
+      })
     } catch (e) {
       console.error(e)
       setTransactionStatus("idle")
@@ -309,8 +332,17 @@ export const TokenDapp: FC<{
       <div className="columns">
         
 
-        <form onSubmit={handleTransferSubmit}>
+        <form>
           <h2 className={styles.title}>Transfer token</h2>
+
+          <label htmlFor="transfer-from">From</label>
+          <input
+            type="text"
+            id="transfer-from"
+            name="fname"
+            value={transferFrom}
+            onChange={(e) => setTransferFrom(e.target.value)}
+          />
 
           <label htmlFor="transfer-to">To</label>
           <input
@@ -329,8 +361,17 @@ export const TokenDapp: FC<{
             value={transferAmount}
             onChange={(e) => setTransferAmount(e.target.value)}
           />
+
+          <label htmlFor="nonce">Nonce</label>
+          <input
+            type="text"
+            id="transfer-nonce"
+            name="fname"
+            value={nonce}
+            onChange={(e) => setNonce(e.target.value)}
+          />
           <br />
-          <input type="submit" disabled={buttonsDisabled} value="Transfer" />
+          <Button variant="contained" onClick={handleTransferSubmit}>Transfer</Button>
         </form>
       </div>
 

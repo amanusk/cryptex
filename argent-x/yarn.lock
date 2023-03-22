@@ -37,6 +37,9 @@
   dependencies:
     "@argent/get-starknet" "^5.3.12"
     "@argent/x-sessions" "^5.3.12"
+    "@emotion/react" "^11.10.6"
+    "@emotion/styled" "^11.10.6"
+    "@mui/material" "^5.11.14"
     "ethers" "^5.5.1"
     "next" "^13.0.0"
     "react" "^18.0.0"
