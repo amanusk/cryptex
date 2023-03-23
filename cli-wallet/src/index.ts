@@ -105,12 +105,24 @@ program.command("declare <filename> <classHash>").action(async (filename: string
   await wallet.declareNewContract(filename, classHash);
 });
 
+// program
+//   .command("validate_tx <msgHash> <sig_r> <sig_s>")
+//   .action(async (msgHash: string, sig_r: string, sig_s: string, options) => {
+//     let wallet = getWalletFromConfig();
+//     await wallet.verifySig(msgHash, sig_r, sig_s);
+//   });
+
 program
   .command("deploy <classHash> [constructorArgs...]")
   .action(async (classHash: string, constructorArgs: string[], options) => {
     let wallet = getWalletFromConfig();
     await wallet.deployNewContract(classHash, constructorArgs);
   });
+
+program.command("tx_info <txHash>").action(async (classHash: string, constructorArgs: string[], options) => {
+  let wallet = getWalletFromConfig();
+  await wallet.deployNewContract(classHash, constructorArgs);
+});
 
 program
   .command("invoke <contractAddress>  <selector> [calldata...]")

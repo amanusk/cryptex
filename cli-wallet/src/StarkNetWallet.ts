@@ -1,3 +1,7 @@
+//import starkwareCrypto from "@starkware-industries/starkware-crypto-utils";
+const starkwareCrypto = require("@starkware-industries/starkware-crypto-utils");
+
+// import starkwareCrypto from "@starkware-industries/starkware-crypto-utils";
 import fs from "fs";
 import { ensureEnvVar, uint256ToBigNumber, generateRandomStarkPrivateKey, prettyPrintFee } from "./util";
 import { Wallet, BigNumber, utils } from "ethers";
@@ -189,57 +193,68 @@ export class StarkNetWallet {
     let uint256Amount = uint256.bnToUint256(transferAmount);
 
     // let walletAddress = "0x53c615080d35defd55569488bc48c1a91d82f2d2ce6199463e095b4a4ead551";
-    let walletAddress = this.account.address;
+    // let walletAddress = this.account.address;
+    let accountAddress = "0x04a78bbf563a976190811d6cc4ebf15f8cb41c9e0305518b8cac1c1f99f45086";
 
-    console.log("WalletAddress", walletAddress);
-    console.log("Address", this.account.address);
-    console.log("Public key", await this.account.signer.getPubKey());
+    // console.log("WalletAddress", accountAddress);
+    // console.log("Address", this.account.address);
+    // console.log("Public key", await this.account.signer.getPubKey());
 
-    let estimateFee = await this.account.estimateInvokeFee({
-      contractAddress: tokenAddress,
-      entrypoint: "transfer",
-      calldata: [recipientAddress, uint256Amount.low, uint256Amount.high],
-    });
-    prettyPrintFee(estimateFee);
+    // let estimateFee = await this.account.estimateInvokeFee({
+    //   contractAddress: tokenAddress,
+    //   entrypoint: "transfer",
+    //   calldata: [recipientAddress, uint256Amount.low, uint256Amount.high],
+    // });
+    // prettyPrintFee(estimateFee);
+    const privateKey = "0xe3e70682c2094cac629f6fbed82c07cd".substring(2);
+    const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, "hex");
+    const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, "hex"), "hex");
+    // console.log("privateKey", privateKey);
+    const publicKeyX = publicKey.pub.getX();
+    console.log("publicKey", publicKeyX.toString(16));
 
-    let nonce = await this.account.getNonce();
+    let nonce = 0;
     let chainId = await this.account.getChainId();
     const version = 1;
-    const maxFee = estimateFee.suggestedMaxFee;
+    // const maxFee = estimateFee.suggestedMaxFee;
+    const maxFee = 0;
 
     let invocation = {
       contractAddress: tokenAddress,
       entrypoint: "transfer",
       calldata: [recipientAddress, uint256Amount.low, uint256Amount.high],
     };
-    let signerDetails = {
-      walletAddress,
-      nonce,
-      version,
-      maxFee: estimateFee.suggestedMaxFee,
-      chainId,
-    };
+    //
+    // let calldata = [
+    //   1,
+    //   0x06d183efadf1b91592d21a93db338489a1f78df3aa0a8bc86420511e01e70425,
+    // ]
 
-    let signature = await this.account.signer.signTransaction([invocation], signerDetails);
+    const call_data = ["0x03086e3f7d0a718bfc403b5161c15ff21433d22cfb82e1fa1dd5ad5d35c531cd", 1, 1];
+    const account_call_data = [
+      1,
+      "0x06d183efadf1b91592d21a93db338489a1f78df3aa0a8bc86420511e01e70425",
+      "0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+      call_data.length,
+      ...call_data,
+    ];
 
-    console.log("Signature", signature);
-
-    const calldata = transaction.fromCallsToExecuteCalldata([invocation]);
-    console.log("Calldata", calldata);
-
-    const msgHash = hash.calculateTransactionHash(
-      signerDetails.walletAddress,
-      signerDetails.version,
-      calldata,
-      signerDetails.maxFee,
-      signerDetails.chainId,
-      signerDetails.nonce,
-    );
-
+    const msgHash = hash.calculateTransactionHash(accountAddress, 1, account_call_data, maxFee, chainId, nonce);
     console.log("Message hash", msgHash);
 
+    const msgSignature = starkwareCrypto.sign(keyPair, msgHash.substring(2));
+    const { r, s } = msgSignature;
+
+    // const calldata = transaction.fromCallsToExecuteCalldata([invocation]);
+    console.log("accountAddress", accountAddress);
+    console.log("Calldata", account_call_data);
+    console.log("Signature", [r.toString(16), s.toString(16)]);
+    console.log("maxFee", maxFee);
+    console.log("chainId", chainId);
+    console.log("nonce", nonce);
+
     // let res = await this.account.invokeFunction(
-    //   { contractAddress: this.account.address, calldata, signature },
+    //   { contractAddress: this.account.address, calldata: account_call_data, signature },
     //   {
     //     nonce,
     //     maxFee,
