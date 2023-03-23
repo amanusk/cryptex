@@ -109,11 +109,9 @@ fn get_test_data() -> TestData {
 #[available_gas(1000000)]
 fn test_validate() {
     let test_data = get_test_data();
-    Account::constructor(
-        initial_key: *(@test_data).keys.at(0_usize),
-        initial_weight: 1_u128,
-        initial_threshold: 3_u128
-    );
+    let mut keys_and_weights = ArrayTrait::new();
+    keys_and_weights.append((*(@test_data).keys.at(0_usize), 1_u128));
+    Account::constructor(3_u128, keys_and_weights, );
     Account::add_key(*(@test_data).keys.at(1_usize), 2_u128);
     Account::add_key(*(@test_data).keys.at(2_usize), 3_u128);
 
@@ -143,11 +141,9 @@ fn test_validate() {
 #[available_gas(1000000)]
 fn test_validate_bad() {
     let test_data = get_test_data();
-    Account::constructor(
-        initial_key: *(@test_data).keys.at(0_usize),
-        initial_weight: 1_u128,
-        initial_threshold: 4_u128
-    );
+    let mut keys_and_weights = ArrayTrait::new();
+    keys_and_weights.append((*(@test_data).keys.at(0_usize), 1_u128));
+    Account::constructor(4_u128, keys_and_weights, );
     Account::add_key(*(@test_data).keys.at(1_usize), 2_u128);
     Account::add_key(*(@test_data).keys.at(2_usize), 3_u128);
 

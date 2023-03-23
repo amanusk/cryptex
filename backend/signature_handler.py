@@ -1,21 +1,37 @@
-from typing import NewType, Optional
-
-PublicKey = NewType("PublicKey", int)
-Signature = NewType("Signature", list[int])
-TxHash = NewType("TxHash", int)
-
+from collections import defaultdict
+from typing import Optional
+from constants import TxHash, PublicKey, Signature, STARKNET_FEEDER_GATEWAY_URL, STARKNET_GATEWAY_URL
+from dataclasses import dataclass
+from starkware.starknet.services.api.gateway.transaction import InvokeFunction
+from feeders_client import ClientHolder
 
 def verify_signature(tx_hash: TxHash, user: PublicKey, signature: Signature) -> bool:
     return True
 
+@dataclass(frozen=True)
+class RawTxData:
+    address: int
+    calldata: list[int]
+    max_fee: int
+    nonce: int
+
+    def to_invoke(self) -> InvokeFunction:
+        return InvokeFunction(
+            version=1, max_fee=self.max_fee, signature=[], nonce=self.nonce,
+            sender_address=self.address, calldata=self.calldata)
 
 class TxData:
-    def __init__(self, tx_hash: TxHash, signer_weights: dict[PublicKey, int], threshold: int):
+    clients = ClientHolder.create(
+            feeder_gateway_url=STARKNET_FEEDER_GATEWAY_URL, gateway_url=STARKNET_GATEWAY_URL)
+
+    def __init__(self, tx_hash: TxHash, signer_weights: dict[PublicKey, int], threshold: int, raw_tx: RawTxData, label):
         self.tx_hash = tx_hash
         self.weights = signer_weights
         self.signatures: dict[PublicKey, Signature] = {}
         self.threshold = threshold
         self.sent = False
+        self.raw_tx = raw_tx
+        self.label = label
 
     def __hash__(self) -> int:
         return self.tx_hash
@@ -43,15 +59,22 @@ class TxData:
             return True
         return False
 
+    async def update_weights(self):
+        signer_weights = await self.clients.get_signer_weights(self.address)
+        threshold = await self.clients.call_get_threshold(self.address)
+
 
 class SignatureHandler:
     def __init__(self) -> None:
         self.txs: dict[TxHash, TxData] = dict()
+        self.user_to_txs: dict[PublicKey, list[TxHash]] = defaultdict(list)
 
-    def add_tx(self, tx_hash: TxHash, signer_weights: dict[PublicKey, int], threshold: int) -> bool:
+    def add_tx(self, tx_hash: TxHash, signer_weights: dict[PublicKey, int], threshold: int, raw_tx: RawTxData, label: Optional[str]) -> bool:
         if tx_hash not in self.txs:
-            self.txs[tx_hash] = TxData(tx_hash, signer_weights, threshold)
-            # self.txs[tx_hash] = self._get_tx_data(tx_hash)
+            new_tx = TxData(tx_hash, signer_weights, threshold, raw_tx, label)
+            self.txs[tx_hash] = new_tx
+            for user in signer_weights:
+                self.user_to_txs[user].append(new_tx)
             return True
         return False
 
