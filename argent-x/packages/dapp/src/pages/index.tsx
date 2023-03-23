@@ -95,15 +95,6 @@ const Home: NextPage = () => {
       <main className={styles.main}>
         {isConnected ? (
           <>
-            <h3 style={{ margin: 0 }}>
-              Wallet address🚀: <code onClick={(e)=>{display()}}>{address && truncateAddress(address)}</code>
-            </h3>
-            <h3 style={{ margin: 0 }}>
-              supports sessions: <code>{`${supportSessions}`}</code>
-            </h3>
-            <h3 style={{ margin: 0 }}>
-              Url: <code>{chain}</code>
-            </h3>
             {account && (
               <TokenDapp showSession={supportSessions} account={account} />
             )}

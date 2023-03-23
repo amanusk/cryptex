@@ -35,11 +35,11 @@ const darkTheme = createTheme({
   },
 });
 
-const privateKey = "0xe3e70682c2094cac629f6fbed82c07cd".substring(2);
-const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, "hex");
-const user = "0x" + keyPair.getPublic(true, "hex").substring(2);
-const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, "hex"), "hex");
-let accountAddress = "0x04a78bbf563a976190811d6cc4ebf15f8cb41c9e0305518b8cac1c1f99f45086";
+// const privateKey = "0xe3e70682c2094cac629f6fbed82c07cd".substring(2);
+// const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, "hex");
+// const user = "0x" + keyPair.getPublic(true, "hex").substring(2);
+// const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, "hex"), "hex");
+let accountAddress = "0x003e08f78f80e13b5496357d74f1dfa135f7ccb69838595e5990b7d84c4fba6b";
 
 const { genKeyPair, getStarkKey } = ec
 
@@ -77,7 +77,7 @@ export const TokenDapp: FC<{
   const [transferTo, setTransferTo] = useState(accountAddress)
   const [transferAmount, setTransferAmount] = useState("1")
   const [nonce, setNonce] = useState("1")
-  const [shortText, setShortText] = useState("")
+  const [privateKey, setPrivateKey] = useState("0xe3e70682c2094cac629f6fbed82c07cd")
   const [allTxs, setAllTxs] = useState<string[]>([])
   const [currentTx, setCurrentTx] = useState<string | undefined>(undefined)
   const [lastTransactionHash, setLastTransactionHash] = useState("")
@@ -114,13 +114,15 @@ export const TokenDapp: FC<{
   }, [transactionStatus, lastTransactionHash])
 
   useEffect(() => {
+    const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, "hex");
+    const user = "0x" + keyPair.getPublic(true, "hex").substring(2);
     const interval = setInterval(() => {
       fetch("http://192.168.1.165:8080/get_pending_txs?user=" + user ).then((response) => {
         response.json().then((txs) => setAllTxs(txs))
       }).catch((err) => {})
     }, 2000)
     return () => clearInterval(interval);
-  })
+  }, [privateKey])
 
   const network = networkId()
   if (network !== "goerli-alpha" && network !== "mainnet-alpha") {
@@ -176,7 +178,7 @@ export const TokenDapp: FC<{
       const calldata = transaction.fromCallsToExecuteCalldata([invocation]);
       const account_call_data = [
         1,
-        "0x06d183efadf1b91592d21a93db338489a1f78df3aa0a8bc86420511e01e70425",
+        "0x04e18fb53858141dc03cc3f6fe9cc8041f44b87f59104da9373111793cba3e31",
         "0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
         calldata.length,
         ...calldata,
@@ -214,6 +216,9 @@ export const TokenDapp: FC<{
       // ];
       const msgHash = hash.calculateTransactionHash(accountAddress, 1, currentTx.calldata, currentTx.max_fee, chainId, currentTx.nonce);
       console.log("AA", accountAddress, 1, currentTx.calldata, currentTx.max_fee, chainId, currentTx.nonce)
+
+      const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, "hex");
+      const user = "0x" + keyPair.getPublic(true, "hex").substring(2);
 
       const {r,s} = starkwareCrypto.sign(keyPair, msgHash.substring(2));
 
@@ -320,12 +325,26 @@ export const TokenDapp: FC<{
     bgcolor: 'background.paper',
   };
 
+  // var img = document.createElement("img")
+  // img.src = "cryptex-low-resolution-logo-color-on-transparent-background.png"
+  // var src = document.getElementById("image")
+  // src.appendChild(img)
+  
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <h3 style={{ margin: 0 }}>
-        Transaction status: <code>{transactionStatus}</code>
-      </h3>
+      {/* <div id="image"></div> */}
+      {/* <h3 style={{ margin: 0 }}>
+        Wallet address: <code>{publicKey}</code>
+      </h3> */}
+      <label htmlFor="private-key">Private Key</label>
+      <input
+          type="text"
+          id="private-key"
+          name="fname"
+          value={privateKey}
+          onChange={(e) => setPrivateKey(e.target.value)}
+        />
       {lastTransactionHash && (
         <h3 style={{ margin: 0 }}>
           Transaction hash:{" "}
@@ -445,35 +464,6 @@ export const TokenDapp: FC<{
           </form>
         </div>
       )}
-
-      <h3 style={{ margin: 0 }}>
-        ETH token address
-        <button
-          className="flat"
-          style={{ marginLeft: ".6em" }}
-          onClick={async () => {
-            try {
-              await addToken(tokenAddress)
-              setAddTokenError("")
-            } catch (error: any) {
-              setAddTokenError(error.message)
-            }
-          }}
-        >
-          Add to wallet 
-        </button>
-        <br />
-        <code>
-          <a
-            target="_blank"
-            href={`${getExplorerBaseUrl()}/contract/${tokenAddress}`}
-            rel="noreferrer"
-          >
-            {truncateAddress(tokenAddress)}
-          </a>
-        </code>
-      </h3>
-      <span className="error-message">{addTokenError}</span>
   </ThemeProvider>
   )
 }
