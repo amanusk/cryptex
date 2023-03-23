@@ -25,6 +25,8 @@ import {
 import styles from "../styles/Home.module.css"
 import { Box, Divider, List, ListItem, ListItemButton, ListItemText, Paper, Stack, styled } from "@mui/material";
 import { getStarknet } from "@argent/get-starknet/dist";
+import TransferWithinAStationIcon from '@mui/icons-material/TransferWithinAStation'
+import SecurityUpdateGoodIcon from '@mui/icons-material/SecurityUpdateGood'
 
 const darkTheme = createTheme({
   palette: {
@@ -334,7 +336,7 @@ export const TokenDapp: FC<{
       )}
       <div className="columns">
         <form>
-          <h2 className={styles.title}>Sign Awaiting Txs</h2>
+          <h2 className={styles.title}>Sign Awaiting Txs  <SecurityUpdateGoodIcon></SecurityUpdateGoodIcon></h2>
           <Box sx={{ width: '100%' }}>
             <Stack spacing={2}>
             {allTxs.map((tx, i) =>
@@ -356,7 +358,8 @@ export const TokenDapp: FC<{
         
 
         <form>
-          <h2 className={styles.title}>Transfer token</h2>
+          <h2 className={styles.title}>Transfer token <TransferWithinAStationIcon></TransferWithinAStationIcon></h2>
+            
 
           <label htmlFor="transfer-from">From</label>
           <input
@@ -442,7 +445,7 @@ export const TokenDapp: FC<{
             }
           }}
         >
-          Add to wallet
+          Add to wallet 
         </button>
         <br />
         <code>
@@ -456,6 +459,7 @@ export const TokenDapp: FC<{
         </code>
       </h3>
       <span className="error-message">{addTokenError}</span>
+      <img src="download.jpg" alt="Trulli" width="500" height="333"/>
   </ThemeProvider>
   )
 }

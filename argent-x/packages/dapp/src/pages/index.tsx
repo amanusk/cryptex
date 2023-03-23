@@ -1,4 +1,5 @@
 import { supportsSessions } from "@argent/x-sessions"
+import { display } from "@mui/system"
 import type { NextPage } from "next"
 import Head from "next/head"
 import { useEffect, useState } from "react"
@@ -76,7 +77,14 @@ const Home: NextPage = () => {
       setSupportsSessions(sessionSupport)
     }
   }
-
+  // const toggle_text = async (e: React.FormEvent) => {
+  //   var x = document.getElementById("myDIV");
+  //   if (x.innerHTML === "Hello") {
+  //     x.innerHTML = "Swapped text!";
+  //   } else {
+  //     x.innerHTML = "Hello";
+  //   }
+  // }
   return (
     <div className={styles.container}>
       <Head>
@@ -88,7 +96,7 @@ const Home: NextPage = () => {
         {isConnected ? (
           <>
             <h3 style={{ margin: 0 }}>
-              Wallet address: <code>{address && truncateAddress(address)}</code>
+              Wallet address🚀: <code onClick={(e)=>{display()}}>{address && truncateAddress(address)}</code>
             </h3>
             <h3 style={{ margin: 0 }}>
               supports sessions: <code>{`${supportSessions}`}</code>
