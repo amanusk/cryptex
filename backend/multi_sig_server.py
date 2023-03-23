@@ -67,15 +67,15 @@ class Server:
         label = inp["name"]
 
         raw_tx = RawTxData(address=address, calldata=calldata, max_fee=max_fee, nonce=nonce)
-        tx_hash = raw_tx.to_invoke().calculate_hash(GENERAL_CONFIG)
+        tx_hash = raw_tx.to_invoke(signature=[]).calculate_hash(GENERAL_CONFIG)
         signer_weights = await self.clients.get_signer_weights(address)
         threshold = await self.clients.call_get_threshold(address)
 
         succeeded = self.sig_handler.add_tx(tx_hash, signer_weights, threshold, raw_tx, label)
         msg = (
-            f"Added tx {tx_hash} successfully"
+            f"Added tx {hex(tx_hash)} successfully"
             if succeeded
-            else f"tx {tx_hash} was already initialized."
+            else f"tx {hex(tx_hash)} was already initialized."
         )
         return web.Response(text=json.dumps(msg))
 
@@ -116,7 +116,7 @@ class Server:
             return web.Response(text=json.dumps(UNKNOWN_TX_MSG.format(tx_hash)))
 
         if force or status is TxStatus.Ready:
-            self._send_tx_to_starknet(tx_hash)
+            await self._send_tx_to_starknet(tx_hash)
             if status is TxStatus.Ready:
                 tx = self.sig_handler.get_tx(tx_hash)
                 for user in tx.weights:
@@ -126,7 +126,7 @@ class Server:
                         pass
             return web.Response(text=json.dumps(f"tx {tx_hash} sent."))
         elif force:
-            self._send_tx_to_starknet(tx_hash)
+            await self._send_tx_to_starknet(tx_hash)
             return web.Response(text=json.dumps(f"tx {tx_hash} sent."))
         else:
             return web.Response(text=json.dumps(f"tx {tx_hash} is not ready to be sent."))
@@ -145,12 +145,12 @@ class Server:
             return web.Response(text=json.dumps(UNKNOWN_TX_MSG.format(tx_hash)))
 
         if force or status is TxStatus.Ready:
-            self._send_tx_to_starknet(tx_hash)
+            await self._send_tx_to_starknet(tx_hash)
             if status is TxStatus.Ready:
                 self._remove_tx_from_singers(tx_hash)
             return web.Response(text=json.dumps(f"tx {tx_hash} sent."))
         elif force:
-            self._send_tx_to_starknet(tx_hash)
+            await self._send_tx_to_starknet(tx_hash)
             return web.Response(text=json.dumps(f"tx {tx_hash} sent."))
         else:
             return web.Response(text=json.dumps(f"tx {tx_hash} is not ready to be sent."))
@@ -161,13 +161,14 @@ class Server:
         Send the tx list of unsigned txs of the given user.
         """
         user = int_from_str(request.query.get("user"))
-        txs_to_sign = self.sig_handler.user_to_txs.get(user, [])
+        txs_hash_to_sign = self.sig_handler.user_to_txs.get(user, [])
+        txs_to_sign = [self.sig_handler.txs[h] for h in txs_hash_to_sign]
         ret_val = []
         for tx in txs_to_sign:
             x = self.sig_handler.txs[tx.tx_hash]
             ret_val.append({
                 "name": x.label,
-                "calldata": x.raw_tx.calldata,
+                "calldata": list(map(hex, x.raw_tx.calldata)),
                 "address": x.raw_tx.address,
                 "max_fee": x.raw_tx.max_fee,
                 "nonce": x.raw_tx.nonce,
@@ -183,25 +184,29 @@ class Server:
             except Exception:
                 pass
 
-    def _send_tx_to_starknet(self, tx_hash):
+    async def _send_tx_to_starknet(self, tx_hash):
         """
         tx_hash is in the txs list.
         """
         tx = self.sig_handler.txs[tx_hash]
-        self.clients.send_tx(tx=tx.raw_tx.to_invoke())
+        signature = []
+        for public_key, sig in tx.signatures.items():
+            signature += [public_key, *sig]
+        signature.insert(0, len(signature))
+        await self.clients.send_tx(tx=tx.raw_tx.to_invoke(signature))
         tx.sent = True
 
     @log_try_wrap
     async def add_signature(self, request):
         inp = await request.json()
-        tx_hash, user, signature = int_from_str(inp["tx_hash"]), int_from_str(inp["user"]), tuple(map(int, inp["signature"]))
+        tx_hash, user, signature = int_from_str(inp["tx_hash"]), int_from_str(inp["user"]), tuple(map(int_from_str, inp["signature"]))
         tx = self.sig_handler.get_tx(tx_hash)
         if tx is None:
             return web.Response(text=f"Given tx {tx_hash} is unknown.")
         tx.add_signature(user, signature)
         self.sig_handler.user_to_txs[user].remove(tx_hash)
         if tx.is_signature_ready():
-            self._send_tx_to_starknet(tx_hash)
+            await self._send_tx_to_starknet(tx_hash)
             self._remove_tx_from_singers(tx_hash)
         return web.Response(text=f"Signature added to tx {tx_hash}.")
 

@@ -15,9 +15,9 @@ class RawTxData:
     max_fee: int
     nonce: int
 
-    def to_invoke(self) -> InvokeFunction:
+    def to_invoke(self, signature: list[int]) -> InvokeFunction:
         return InvokeFunction(
-            version=1, max_fee=self.max_fee, signature=[], nonce=self.nonce,
+            version=1, max_fee=self.max_fee, signature=signature, nonce=self.nonce,
             sender_address=self.address, calldata=self.calldata)
 
 class TxData:
@@ -74,7 +74,7 @@ class SignatureHandler:
             new_tx = TxData(tx_hash, signer_weights, threshold, raw_tx, label)
             self.txs[tx_hash] = new_tx
             for user in signer_weights:
-                self.user_to_txs[user].append(new_tx)
+                self.user_to_txs[user].append(tx_hash)
             return True
         return False
 
