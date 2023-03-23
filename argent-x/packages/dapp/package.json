@@ -16,6 +16,7 @@
     "@emotion/styled": "^11.10.6",
     "@mui/icons-material": "^5.11.11",
     "@mui/material": "^5.11.14",
+    "@starkware-industries/starkware-crypto-utils": "^0.0.2",
     "bn.js": "^5.2.1",
     "ethers": "^5.5.1",
     "next": "^13.0.0",

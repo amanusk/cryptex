@@ -1,3 +1,4 @@
+const starkwareCrypto = require("@starkware-industries/starkware-crypto-utils");
 import { SessionAccount, createSession } from "@argent/x-sessions"
 import { FC, useEffect, useState } from "react"
 import { Abi, AccountInterface, Contract, ec, transaction, uint256 } from "starknet"
@@ -34,6 +35,12 @@ const darkTheme = createTheme({
   },
 });
 
+const privateKey = "0xe3e70682c2094cac629f6fbed82c07cd".substring(2);
+const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, "hex");
+const user = "0x" + keyPair.getPublic(true, "hex").substring(2);
+const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, "hex"), "hex");
+let accountAddress = "0x04a78bbf563a976190811d6cc4ebf15f8cb41c9e0305518b8cac1c1f99f45086";
+
 const { genKeyPair, getStarkKey } = ec
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -66,8 +73,8 @@ export const TokenDapp: FC<{
   account: AccountInterface
 }> = ({ showSession, account }) => {
   const [mintAmount, setMintAmount] = useState("10")
-  const [transferFrom, setTransferFrom] = useState("")
-  const [transferTo, setTransferTo] = useState("")
+  const [transferFrom, setTransferFrom] = useState(accountAddress)
+  const [transferTo, setTransferTo] = useState(accountAddress)
   const [transferAmount, setTransferAmount] = useState("1")
   const [nonce, setNonce] = useState("1")
   const [shortText, setShortText] = useState("")
@@ -108,7 +115,7 @@ export const TokenDapp: FC<{
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetch("http://192.168.1.165:8080/get_pending_txs?user=" + getStarkKey(sessionSigner), ).then((response) => {
+      fetch("http://192.168.1.165:8080/get_pending_txs?user=" + user ).then((response) => {
         response.json().then((txs) => setAllTxs(txs))
       }).catch((err) => {})
     }, 2000)
@@ -167,10 +174,17 @@ export const TokenDapp: FC<{
         calldata: [transferTo, uint256Amount.low, uint256Amount.high],
       };
       const calldata = transaction.fromCallsToExecuteCalldata([invocation]);
+      const account_call_data = [
+        1,
+        "0x06d183efadf1b91592d21a93db338489a1f78df3aa0a8bc86420511e01e70425",
+        "0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+        calldata.length,
+        ...calldata,
+      ];
       const data = {
-        name:"Transfer bla to bla",
+        name:"Transfer " + transferAmount + " to " + transferTo,
         address:walletAddress,
-        calldata:calldata,
+        calldata:account_call_data,
         max_fee:maxFee,
         nonce:nonce
       }
@@ -189,23 +203,24 @@ export const TokenDapp: FC<{
       e.preventDefault()
       setTransactionStatus("approve")
 
-      const maxFee=10000000000000000;
-      let starknet = getStarknet();
       let chainId = await starknet.account.getChainId();
-      const msgHash = hash.calculateTransactionHash(
-        currentTx.address,
-        1,
-        currentTx.calldata,
-        maxFee,
-        chainId,
-        currentTx.nonce,
-      );
-      const signature = await signMessage(msgHash)
+
+      // const account_call_data = [
+      //   1,
+      //   "0x06d183efadf1b91592d21a93db338489a1f78df3aa0a8bc86420511e01e70425",
+      //   "0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+      //   currentTx.calldata.length,
+      //   ...currentTx.calldata,
+      // ];
+      const msgHash = hash.calculateTransactionHash(accountAddress, 1, currentTx.calldata, currentTx.max_fee, chainId, currentTx.nonce);
+      console.log("AA", accountAddress, 1, currentTx.calldata, currentTx.max_fee, chainId, currentTx.nonce)
+
+      const {r,s} = starkwareCrypto.sign(keyPair, msgHash.substring(2));
 
       let data = {
-        tx_hash: currentTx,
-        user: getStarkKey(sessionSigner),
-        signature
+        tx_hash: msgHash,
+        user: user,
+        signature:["0x" + r.toString(16),"0x" + s.toString(16)]
       };
       let res = await fetch("http://192.168.1.165:8080/add_signature", {
         method: 'POST',
@@ -459,7 +474,6 @@ export const TokenDapp: FC<{
         </code>
       </h3>
       <span className="error-message">{addTokenError}</span>
-      <img src="download.jpg" alt="Trulli" width="500" height="333"/>
   </ThemeProvider>
   )
 }
