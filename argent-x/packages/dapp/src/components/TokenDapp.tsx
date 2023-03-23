@@ -6,6 +6,8 @@ import { hash } from "starknet5"
 import Button from '@mui/material/Button';
 import Erc20Abi from "../../abi/ERC20.json"
 import { truncateAddress, truncateHex } from "../services/address.service"
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+import CssBaseline from '@mui/material/CssBaseline'
 import {
   getErc20TokenAddress,
   mintToken,
@@ -23,6 +25,12 @@ import {
 import styles from "../styles/Home.module.css"
 import { Box, Divider, List, ListItem, ListItemButton, ListItemText, Paper, Stack, styled } from "@mui/material";
 import { getStarknet } from "@argent/get-starknet/dist";
+
+const darkTheme = createTheme({
+  palette: {
+    mode: 'dark',
+  },
+});
 
 const { genKeyPair, getStarkKey } = ec
 
@@ -158,6 +166,7 @@ export const TokenDapp: FC<{
       };
       const calldata = transaction.fromCallsToExecuteCalldata([invocation]);
       const data = {
+        name:"Transfer bla to bla",
         address:walletAddress,
         calldata:calldata,
         max_fee:maxFee,
@@ -178,14 +187,23 @@ export const TokenDapp: FC<{
       e.preventDefault()
       setTransactionStatus("approve")
 
-      console.log("sign", shortText)
-      const result = await signMessage(shortText)
-      console.log(result)
+      const maxFee=10000000000000000;
+      let starknet = getStarknet();
+      let chainId = await starknet.account.getChainId();
+      const msgHash = hash.calculateTransactionHash(
+        currentTx.address,
+        1,
+        currentTx.calldata,
+        maxFee,
+        chainId,
+        currentTx.nonce,
+      );
+      const signature = await signMessage(msgHash)
 
       let data = {
         tx_hash: currentTx,
         user: getStarkKey(sessionSigner),
-        signature: result
+        signature
       };
       let res = await fetch("http://192.168.1.165:8080/add_signature", {
         method: 'POST',
@@ -278,7 +296,7 @@ export const TokenDapp: FC<{
   }
 
   const tokenAddress = getErc20TokenAddress(network as any)
-
+  
   const style = {
     width: '100%',
     maxWidth: 360,
@@ -286,7 +304,8 @@ export const TokenDapp: FC<{
   };
 
   return (
-    <>
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
       <h3 style={{ margin: 0 }}>
         Transaction status: <code>{transactionStatus}</code>
       </h3>
@@ -318,13 +337,17 @@ export const TokenDapp: FC<{
           <h2 className={styles.title}>Sign Awaiting Txs</h2>
           <Box sx={{ width: '100%' }}>
             <Stack spacing={2}>
-            {allTxs.map(tx =>
-            <Item sx={{fontSize:30, backgroundColor:tx==currentTx?"#dddddd":"#ffffff"}} onClick={(e) => handleTxClick(e,tx)}>{tx}</Item>)}
+            {allTxs.map((tx, i) =>
+            <Item key={"tx" + i.toString()} sx={{fontSize:30, backgroundColor:tx==currentTx?"#dddddd":"#ffffff",color: 'black'}} onClick={(e) => handleTxClick(e,tx)}>{tx.name}</Item>)}
             </Stack>
           </Box>
 
-          <label htmlFor="mint-amount">Current tx</label>
-          <p>{currentTx}</p>
+          {currentTx ? [
+            <label htmlFor="mint-amount">Name</label>,
+            <p>{currentTx.name}</p>,
+            <label htmlFor="mint-amount">data</label>,
+            <p>{JSON.stringify(currentTx)}</p>
+          ] : []}
           { currentTx ? [<Button variant="contained" onClick={handleSignSubmit}>Sign</Button>] : [] }
         </form>
         
@@ -433,6 +456,6 @@ export const TokenDapp: FC<{
         </code>
       </h3>
       <span className="error-message">{addTokenError}</span>
-    </>
+  </ThemeProvider>
   )
 }
